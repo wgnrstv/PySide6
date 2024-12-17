@@ -1,7 +1,6 @@
 from PySide6 import QtWidgets, QtCore
 from a import WeatherHandler
 
-
 class WeatherWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -89,7 +88,6 @@ class WeatherWidget(QtWidgets.QWidget):
             self.weather_thread = WeatherHandler(lat, lon)
             self.weather_thread.setDelay(delay)
             self.weather_thread.weatherDataReceived.connect(self.update_weather_info)
-            self.weather_thread.weatherErrorOccurred.connect(self.handle_error)
             self.weather_thread.start()
 
             self.toggle_button.setText("Остановить")
@@ -107,23 +105,33 @@ class WeatherWidget(QtWidgets.QWidget):
     def update_weather_info(self, data):
         """
         Обновляет информацию о погоде в поле вывода.
-
-        :param data: Словарь с данными о погоде.
+        Если в data есть ключ "error", значит произошла ошибка.
         """
-        weather = data.get("current_weather", {})
-        temperature = weather.get("temperature", "N/A")
-        wind_speed = weather.get("windspeed", "N/A")
-        weather_info = f"Температура: {temperature}°C\nСкорость ветра: {wind_speed} м/с"
-        self.weather_info_display.setPlainText(weather_info)
+        if "error" in data:
+            # Обрабатываем ошибку
+            self.handle_error(data["error"])
+        else:
+            # Обновляем инфу о погоде
+            weather = data.get("current_weather", {})
+            temperature = weather.get("temperature", "N/A")
+            wind_speed = weather.get("windspeed", "N/A")
+            weather_info = f"Температура: {temperature}°C\nСкорость ветра: {wind_speed} м/с"
+            self.weather_info_display.setPlainText(weather_info)
 
     def handle_error(self, error_message):
         """
         Обрабатывает ошибки при работе с потоком.
-
-        :param error_message: Текст ошибки.
         """
         QtWidgets.QMessageBox.critical(self, "Ошибка", f"Произошла ошибка: {error_message}")
-
+        # Останавливаем поток в случае ошибки
+        if self.weather_thread is not None:
+            self.weather_thread.stop()
+            self.weather_thread = None
+            # Разблокируем поля ввода
+            self.lat_input.setDisabled(False)
+            self.lon_input.setDisabled(False)
+            self.delay_input.setDisabled(False)
+            self.toggle_button.setText("Запустить")
 
 if __name__ == "__main__":
     import sys
